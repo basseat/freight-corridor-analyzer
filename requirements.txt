@@ -1,0 +1,8 @@
+pandas
+numpy
+requests
+pyarrow
+apache-airflow
+sqlalchemy
+psycopg2-binary
+pytest
