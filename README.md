@@ -110,6 +110,46 @@ pytest
 `src/stage_clean.py` (run directly via `python src/ipf.py` /
 `python src/stage_clean.py` for the same checks with printed output).
 
+### Routing integration check
+
+The unit tests cover the SQL builders as strings but never touch a
+database. `tests/test_routing_pg.py` runs the real `snap_centroids` →
+`route_od_pairs` → `compute_edge_loads` chain against a live PostGIS +
+pgRouting database, using a tiny synthetic graph it seeds itself (no OSM
+download, no `osmium`/`osm2pgrouting` needed). It **skips** unless
+`ROUTING_IT_DB_URI` is set.
+
+To run it against a local PostgreSQL (e.g. the EDB install at
+`/Library/PostgreSQL/18`):
+
+```bash
+# 1. Install PostGIS + pgRouting into the server. For the EDB build,
+#    launch Application Stack Builder (bundled with the installer) and
+#    pick the "PostGIS Bundle" under Spatial Extensions — it includes
+#    pgRouting. (Homebrew's `postgis` targets a Homebrew server, not EDB.)
+
+# 2. Create a throwaway test DB and enable the extensions
+/Library/PostgreSQL/18/bin/createdb -U postgres freight_it
+/Library/PostgreSQL/18/bin/psql -U postgres -d freight_it \
+  -c "CREATE EXTENSION postgis; CREATE EXTENSION pgrouting;"
+
+# 3. Point the env var at it and run just the integration test
+cd ~/Downloads/freight-corridor-analyzer
+export ROUTING_IT_DB_URI="postgresql+psycopg2://postgres:YOURPW@localhost:5432/freight_it"
+./.venv/bin/python -m pytest tests/test_routing_pg.py -v
+```
+
+The test asserts each centroid snaps to the nearest terminal node and
+that tonnage from both O-D directions accumulates on the shortest-path
+edges (never the deliberately-slow direct edge, and excluding an
+out-of-vintage row) — i.e. the whole routing chain executes correctly
+against real `pgr_dijkstra`.
+
+A full **real-data** run (Tier B) additionally needs `osmium` and
+`osm2pgrouting` on PATH plus the multi-GB Geofabrik extracts: run
+`build_network` to populate `ways`, load an O-D vintage via
+`freight_assignment`, then `route_freight`.
+
 ## Environment variables
 
 - `FREIGHT_DATA_DIR` — parquet staging directory (default `/tmp/freight`)
