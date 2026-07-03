@@ -37,9 +37,28 @@ All tonnage is in THS_T (thousand tonnes).
 
 Tasks pass parquet paths between each other, not XCom payloads.
 
-A planned second DAG, `build_network`, builds the routable road network
-(OSM extracts → osmium filter → osm2pgrouting → PostGIS) and gates
-`freight_assignment`'s downstream routing tasks via an Airflow Dataset.
+`dags/build_network.py` is the second DAG, building the routable road
+network:
+
+1. `download` — pull each of the five Geofabrik country extracts
+   (`.osm.pbf`), mapped over `DE`/`FR`/`ES`/`NL`/`PL`
+2. `filter_country` — `osmium tags-filter` down to motorway/trunk/primary
+   ways per country
+3. `merge` — `osmium merge` the five filtered extracts into one network
+4. `load` — `osm2pgrouting` loads the merged extract into PostGIS and
+   builds the routable topology (`ways`, `ways_vertices_pgr`)
+
+The `load` task declares `Asset("postgres://network/ways_topology")` as
+an outlet. A later routing DAG (`map_centroids` → `route_od_pairs` →
+`compute_edge_loads`) will schedule off that same asset instead of a cron
+schedule, so routing only reruns once the network topology is rebuilt.
+(In Airflow 3.x this is the `Asset` API — the older `Dataset` name from
+2.x no longer exists.)
+
+`src/network.py` keeps the OS-process invocations (`osmium`,
+`osm2pgrouting`) as pure command builders (`filter_cmd`, `merge_cmd`,
+`osm2pgrouting_cmd`) so they're unit-testable without actually running
+the binaries.
 
 ## Setup
 
@@ -47,6 +66,12 @@ A planned second DAG, `build_network`, builds the routable road network
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+`build_network` additionally requires the `osmium` (osmium-tool) and
+`osm2pgrouting` CLI binaries on PATH, and a PostGIS database with the
+pgRouting extension enabled — none of these are pip-installable, so
+install them via your OS package manager (e.g. `brew install osmium-tool
+osm2pgrouting`, or `apt-get install osmium-tool osm2pgrouting`).
 
 ## Tests
 
@@ -63,3 +88,10 @@ pytest
 - `FREIGHT_DATA_DIR` — parquet staging directory (default `/tmp/freight`)
 - `FREIGHT_DB_URI` — Postgres URI for the `load_od` task; load is skipped
   if unset
+- `NETWORK_DATA_DIR` — OSM extract staging directory (default `/tmp/network`)
+- `NETWORK_DB_URI` — PostGIS URI for `osm2pgrouting`; `build_network`'s
+  `load` task raises if unset (the network graph has no meaningful
+  no-op skip path the way the tonnage load does)
+- `NETWORK_MAPCONFIG` — path to the osm2pgrouting tag-mapping XML
+  (default `/usr/share/osm2pgrouting/mapconfig.xml`, the standard
+  package install location)
