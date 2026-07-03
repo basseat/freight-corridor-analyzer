@@ -2,8 +2,7 @@
 
 Maps the most-used long-distance road freight corridors across Germany, France,
 Spain, Netherlands, and Poland, using real Eurostat data. Extends the earlier
-[Green Miles](../green_miles_problem) project from tonnage totals into a
-routable network view.
+**Green Miles** project from tonnage totals into a routable network view.
 
 ## Why IPF
 
