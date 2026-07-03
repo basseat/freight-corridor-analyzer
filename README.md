@@ -60,6 +60,33 @@ schedule, so routing only reruns once the network topology is rebuilt.
 `osm2pgrouting_cmd`) so they're unit-testable without actually running
 the binaries.
 
+`dags/route_freight.py` is the third DAG, turning the O-D matrix into
+the "most-used routes" output. It is scheduled off the
+`Asset("postgres://network/ways_topology")` that `build_network`
+produces, so it reruns whenever the network topology is rebuilt:
+
+1. `map_centroids` — pull NUTS-2 region polygons from Eurostat GISCO,
+   load them into PostGIS, then snap each region's centroid to its
+   nearest routable vertex (`ways_vertices_pgr`) via a KNN (`<->`) query
+2. `route` — `pgr_dijkstra` (combinations / one-to-many form) over every
+   snapped O-D pair for the target vintage, expanding each shortest path
+   to the edges it traverses and attaching that pair's tonnage
+3. `edge_loads` — sum tonnage per edge into `edge_loads` (edge geometry +
+   total tonnes), the routable "most-used corridors" layer for Tableau
+
+The vintage routed defaults to the `freight_processed_vintage` Airflow
+Variable set by `freight_assignment.load_od` (override with
+`params.vintage`). `src/routing.py` keeps every SQL statement in pure
+builder functions (`centroid_nodes_sql`, `route_od_sql`, `edge_loads_sql`)
+so they're unit-testable, and the vintage is `int`-coerced before it's
+interpolated into SQL.
+
+> The O-D matrix (`freight_od_matrix`, from `freight_assignment`) and the
+> routable network (`ways` / `ways_vertices_pgr`, from `build_network`)
+> must live in the **same** database, since routing joins them in SQL.
+> Point `FREIGHT_DB_URI`, `NETWORK_DB_URI`, and `ROUTING_DB_URI` at one
+> PostGIS+pgRouting warehouse in a real deployment.
+
 ## Setup
 
 ```bash
@@ -95,3 +122,8 @@ pytest
 - `NETWORK_MAPCONFIG` — path to the osm2pgrouting tag-mapping XML
   (default `/usr/share/osm2pgrouting/mapconfig.xml`, the standard
   package install location)
+- `ROUTING_DB_URI` — database for `route_freight` (falls back to
+  `NETWORK_DB_URI`); must hold both `freight_od_matrix` and the network
+  tables
+- `NUTS_YEAR` — GISCO NUTS classification vintage for region geometry
+  (default `2021`)
