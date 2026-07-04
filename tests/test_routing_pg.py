@@ -30,16 +30,17 @@ INSERT INTO ways_vertices_pgr (id, geom) VALUES
 
 -- cost/reverse_cost only carry the one-way sign (all +, i.e. two-way here);
 -- length_m is the routing weight. Chain edges are short, the direct 105 is long.
+-- tag_id 101 = motorway, so every node qualifies as a major-road snap target.
 CREATE TABLE ways (
     id bigint PRIMARY KEY, source bigint, target bigint,
     cost double precision, reverse_cost double precision,
-    length_m double precision, geom geometry(LineString, 4326));
-INSERT INTO ways (id, source, target, cost, reverse_cost, length_m, geom) VALUES
-    (101, 1, 2, 1, 1, 1000, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.0,50.0), ST_MakePoint(0.1,50.0)), 4326)),
-    (102, 2, 3, 1, 1, 1000, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.1,50.0), ST_MakePoint(0.2,50.0)), 4326)),
-    (103, 3, 4, 1, 1, 1000, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.2,50.0), ST_MakePoint(0.3,50.0)), 4326)),
-    (104, 4, 5, 1, 1, 1000, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.3,50.0), ST_MakePoint(0.4,50.0)), 4326)),
-    (105, 1, 5, 1, 1, 100000, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.0,50.0), ST_MakePoint(0.4,50.0)), 4326));
+    length_m double precision, tag_id int, geom geometry(LineString, 4326));
+INSERT INTO ways (id, source, target, cost, reverse_cost, length_m, tag_id, geom) VALUES
+    (101, 1, 2, 1, 1, 1000, 101, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.0,50.0), ST_MakePoint(0.1,50.0)), 4326)),
+    (102, 2, 3, 1, 1, 1000, 101, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.1,50.0), ST_MakePoint(0.2,50.0)), 4326)),
+    (103, 3, 4, 1, 1, 1000, 101, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.2,50.0), ST_MakePoint(0.3,50.0)), 4326)),
+    (104, 4, 5, 1, 1, 1000, 101, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.3,50.0), ST_MakePoint(0.4,50.0)), 4326)),
+    (105, 1, 5, 1, 1, 100000, 101, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.0,50.0), ST_MakePoint(0.4,50.0)), 4326));
 
 CREATE TABLE nuts2_regions (nuts2 text PRIMARY KEY, the_geom geometry(Geometry, 4326));
 INSERT INTO nuts2_regions (nuts2, the_geom) VALUES
@@ -96,11 +97,11 @@ INSERT INTO ways_vertices_pgr (id, geom) VALUES
 CREATE TABLE ways (
     id bigint PRIMARY KEY, source bigint, target bigint,
     cost double precision, reverse_cost double precision,
-    length_m double precision, geom geometry(LineString, 4326));
-INSERT INTO ways (id, source, target, cost, reverse_cost, length_m, geom) VALUES
-    (10, 1, 2,  1,  1, 1000, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.0,50.0), ST_MakePoint(0.1,50.0)), 4326)),
-    (11, 2, 3,  1,  1, 1000, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.1,50.0), ST_MakePoint(0.2,50.0)), 4326)),
-    (12, 1, 3, -1,  1,  500, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.0,50.0), ST_MakePoint(0.2,50.0)), 4326));
+    length_m double precision, tag_id int, geom geometry(LineString, 4326));
+INSERT INTO ways (id, source, target, cost, reverse_cost, length_m, tag_id, geom) VALUES
+    (10, 1, 2,  1,  1, 1000, 101, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.0,50.0), ST_MakePoint(0.1,50.0)), 4326)),
+    (11, 2, 3,  1,  1, 1000, 101, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.1,50.0), ST_MakePoint(0.2,50.0)), 4326)),
+    (12, 1, 3, -1,  1,  500, 101, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.0,50.0), ST_MakePoint(0.2,50.0)), 4326));
 
 CREATE TABLE nuts2_regions (nuts2 text PRIMARY KEY, the_geom geometry(Geometry, 4326));
 INSERT INTO nuts2_regions (nuts2, the_geom) VALUES
@@ -129,3 +130,46 @@ def test_routing_respects_one_way_edges(oneway_engine):
         loads = dict(c.execute(text("SELECT id, tonnes FROM edge_loads")).all())
     # the shorter direct edge 12 is one-way against travel; A->B must detour 1->2->3
     assert loads == {10: 100.0, 11: 100.0}
+
+
+# node 9 (on a primary road, tag 106) sits right next to the region centroid,
+# but nodes 1/2 are on a motorway (tag 101). Snapping must skip the closer
+# primary node and pick the motorway node.
+SEED_MAJOR = """
+DROP TABLE IF EXISTS ways_vertices_pgr, ways, nuts2_regions, freight_od_matrix,
+    centroid_nodes, od_routes, edge_loads CASCADE;
+
+CREATE TABLE ways_vertices_pgr (id bigint PRIMARY KEY, geom geometry(Point, 4326));
+INSERT INTO ways_vertices_pgr (id, geom) VALUES
+    (1, ST_SetSRID(ST_MakePoint(0.0, 50.0), 4326)),
+    (2, ST_SetSRID(ST_MakePoint(0.1, 50.0), 4326)),
+    (9, ST_SetSRID(ST_MakePoint(0.02, 50.001), 4326));
+
+CREATE TABLE ways (
+    id bigint PRIMARY KEY, source bigint, target bigint,
+    cost double precision, reverse_cost double precision,
+    length_m double precision, tag_id int, geom geometry(LineString, 4326));
+INSERT INTO ways (id, source, target, cost, reverse_cost, length_m, tag_id, geom) VALUES
+    (20, 1, 2, 1, 1, 1000, 101, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.0,50.0), ST_MakePoint(0.1,50.0)), 4326)),
+    (21, 1, 9, 1, 1,  100, 106, ST_SetSRID(ST_MakeLine(ST_MakePoint(0.0,50.0), ST_MakePoint(0.02,50.001)), 4326));
+
+CREATE TABLE nuts2_regions (nuts2 text PRIMARY KEY, the_geom geometry(Geometry, 4326));
+INSERT INTO nuts2_regions (nuts2, the_geom) VALUES
+    ('C', ST_SetSRID(ST_MakePoint(0.02, 50.0), 4326));
+"""
+
+
+@pytest.fixture()
+def major_engine():
+    eng = create_engine(DB_URI)
+    with eng.begin() as c:
+        c.exec_driver_sql(SEED_MAJOR)
+    return eng
+
+
+def test_centroid_snaps_to_major_road_not_closer_minor_node(major_engine):
+    snap_centroids(DB_URI)
+    with major_engine.connect() as c:
+        node = c.execute(text("SELECT node FROM centroid_nodes WHERE nuts2='C'")).scalar()
+    # node 9 (primary) is far closer to C, but only 1/2 are motorway -> snap to 1
+    assert node == 1

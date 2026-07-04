@@ -26,18 +26,29 @@ def fetch_nuts2_features(year=2021, resolution="01M"):
     return parse_nuts2_features(r.json())
 
 
+MAJOR_TAGS = "(101, 102, 104, 105)"  # motorway, motorway_link, trunk, trunk_link
+
+
 def centroid_nodes_sql():
-    # snap each NUTS-2 centroid to its nearest routable vertex (KNN via <->)
-    return """
+    # snap each NUTS-2 centroid to its nearest MAJOR-road node (motorway/trunk),
+    # not just any vertex, so a region enters the long-distance network at a real
+    # interchange rather than funnelling its freight through nearby local streets
+    return f"""
 DROP TABLE IF EXISTS centroid_nodes;
+CREATE TEMP TABLE major_nodes AS
+SELECT DISTINCT v.id, v.geom FROM ways_vertices_pgr v
+WHERE v.id IN (SELECT source FROM ways WHERE tag_id IN {MAJOR_TAGS}
+               UNION SELECT target FROM ways WHERE tag_id IN {MAJOR_TAGS});
+CREATE INDEX ON major_nodes USING gist (geom);
+
 CREATE TABLE centroid_nodes AS
 SELECT r.nuts2, n.id AS node, (r.c <-> n.geom) AS dist
 FROM (SELECT nuts2, ST_Centroid(the_geom) AS c FROM nuts2_regions) r
 CROSS JOIN LATERAL (
-    SELECT id, geom FROM ways_vertices_pgr
-    ORDER BY geom <-> r.c LIMIT 1
+    SELECT id, geom FROM major_nodes ORDER BY geom <-> r.c LIMIT 1
 ) n;
 ALTER TABLE centroid_nodes ADD PRIMARY KEY (nuts2);
+DROP TABLE major_nodes;
 """
 
 

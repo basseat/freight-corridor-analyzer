@@ -46,6 +46,11 @@ def test_centroid_nodes_sql_snaps_via_knn():
     assert "ways_vertices_pgr" in sql and "<->" in sql and "ST_Centroid" in sql
 
 
+def test_centroid_nodes_sql_restricts_to_major_road_nodes():
+    sql = centroid_nodes_sql()
+    assert "tag_id IN" in sql and "major_nodes" in sql
+
+
 def test_edge_loads_sql_aggregates_tonnes_per_edge():
     sql = edge_loads_sql()
     assert "SUM(r.tonnes)" in sql and "GROUP BY w.id" in sql and "od_routes" in sql
