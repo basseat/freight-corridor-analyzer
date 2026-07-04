@@ -9,8 +9,12 @@ Spain, Netherlands, and Poland, using real Eurostat data. Extends the earlier
 *Europe's Busiest Road-Freight Corridors — Germany · France · Spain ·
 Netherlands · Poland.*
 
-<!-- add the exported Tableau map here: docs/corridor_map_2023.png -->
-<!-- ![Corridor map](docs/corridor_map_2023.png) -->
+![Europe's busiest road-freight corridors, 2023](docs/corridor_map_2023.png)
+
+*Motorway/trunk segments coloured and sized by annual tonnes carried, routed
+over the reconstructed 2023 NUTS-2 O-D matrix by drive time. The Germany→
+Netherlands (Rhine–Randstad) and Germany→Poland corridors dominate, while Spain
+concentrates its flow on a sparse autovía skeleton.*
 
 On the 2023 Eurostat vintage the pipeline reconstructs a **13,456-pair NUTS-2
 origin–destination matrix** (116 regions; IPF closes all three marginal
