@@ -72,7 +72,10 @@ produces, so it reruns whenever the network topology is rebuilt:
    nearest routable vertex (`ways_vertices_pgr`) via a KNN (`<->`) query
 2. `route` — `pgr_dijkstra` (combinations / one-to-many form) over every
    snapped O-D pair for the target vintage, expanding each shortest path
-   to the edges it traverses and attaching that pair's tonnage
+   to the edges it traverses and attaching that pair's tonnage. Edges are
+   weighted by length in metres (`length_m`), with `sign(cost)` /
+   `sign(reverse_cost)` preserving osm2pgrouting's one-way encoding
+   (negative = not traversable that way)
 3. `edge_loads` — sum tonnage per edge into `edge_loads` (edge geometry +
    total tonnes), the routable "most-used corridors" layer for Tableau
 

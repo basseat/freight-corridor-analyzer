@@ -61,9 +61,11 @@ WITH od AS (
     WHERE m.vintage = {v} AND o.node <> d.node
 ),
 paths AS (
+    -- weight by length in metres; sign(cost)/sign(reverse_cost) preserves
+    -- osm2pgrouting's one-way encoding (negative = not traversable that way)
     SELECT start_vid, end_vid, edge
     FROM pgr_dijkstra(
-        'SELECT id, source, target, cost, reverse_cost FROM ways',
+        'SELECT id, source, target, sign(cost) * length_m AS cost, sign(reverse_cost) * length_m AS reverse_cost FROM ways',
         '{combos}',
         true)
     WHERE edge <> -1

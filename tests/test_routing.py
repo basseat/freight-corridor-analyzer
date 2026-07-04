@@ -30,6 +30,12 @@ def test_route_od_sql_int_injects_vintage():
     assert "pgr_dijkstra" in sql and "edge <> -1" in sql
 
 
+def test_route_od_sql_weights_by_metres_and_keeps_oneways():
+    sql = route_od_sql(2022)
+    assert "sign(cost) * length_m" in sql
+    assert "sign(reverse_cost) * length_m" in sql
+
+
 def test_route_od_sql_rejects_non_int_vintage():
     with pytest.raises(ValueError):
         route_od_sql("2022; DROP TABLE ways")
