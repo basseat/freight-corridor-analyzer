@@ -44,8 +44,11 @@ network:
 2. `filter_country` — `osmium tags-filter` down to motorway/trunk/primary
    ways per country
 3. `merge` — `osmium merge` the five filtered extracts into one network
-4. `load` — `osm2pgrouting` loads the merged extract into PostGIS and
-   builds the routable topology (`ways`, `ways_vertices_pgr`)
+4. `load` — convert the merged PBF to OSM XML (`osmium cat`), then
+   `osm2pgrouting` loads it into PostGIS and builds the routable topology
+   (`ways`, `ways_vertices_pgr`). osm2pgrouting parses OSM **XML**, not
+   PBF, hence the conversion; its 3.x schema keys edges by `id`/`geom`
+   (older 2.x used `gid`/`the_geom`), which the routing SQL targets.
 
 The `load` task declares `Asset("postgres://network/ways_topology")` as
 an outlet. A later routing DAG (`map_centroids` → `route_od_pairs` →
@@ -170,8 +173,9 @@ A full **real-data** run (Tier B) additionally needs `osmium` and
   `load` task raises if unset (the network graph has no meaningful
   no-op skip path the way the tonnage load does)
 - `NETWORK_MAPCONFIG` — path to the osm2pgrouting tag-mapping XML
-  (default `/usr/share/osm2pgrouting/mapconfig.xml`, the standard
-  package install location)
+  (default `/usr/share/osm2pgrouting/mapconfig.xml`, the standard Linux
+  package location; on macOS/Homebrew it's
+  `/opt/homebrew/opt/osm2pgrouting/share/osm2pgrouting/mapconfig.xml`)
 - `ROUTING_DB_URI` — database for `route_freight` (falls back to
   `NETWORK_DB_URI`); must hold both `freight_od_matrix` and the network
   tables

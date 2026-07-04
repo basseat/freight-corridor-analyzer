@@ -50,10 +50,19 @@ def merge_pbfs(pbf_paths, dest_pbf):
     return dest_pbf
 
 
-def osm2pgrouting_cmd(pbf_path, db_uri, mapconfig=None):
+def to_osm_xml_cmd(src_pbf, dest_osm):
+    return ["osmium", "cat", "--overwrite", "-o", dest_osm, src_pbf]
+
+
+def to_osm_xml(src_pbf, dest_osm):
+    subprocess.run(to_osm_xml_cmd(src_pbf, dest_osm), check=True)
+    return dest_osm
+
+
+def osm2pgrouting_cmd(osm_path, db_uri, mapconfig=None):
     u = urlsplit(db_uri)
     return [
-        "osm2pgrouting", "-f", pbf_path, "-c", mapconfig or MAPCONFIG,
+        "osm2pgrouting", "-f", osm_path, "-c", mapconfig or MAPCONFIG,
         "-h", u.hostname, "-p", str(u.port or 5432),
         "-U", u.username, "-W", u.password or "", "-d", u.path.lstrip("/"),
         "--clean",
@@ -61,4 +70,8 @@ def osm2pgrouting_cmd(pbf_path, db_uri, mapconfig=None):
 
 
 def load_topology(pbf_path, db_uri, mapconfig=None):
-    subprocess.run(osm2pgrouting_cmd(pbf_path, db_uri, mapconfig), check=True)
+    # osm2pgrouting parses OSM XML, not PBF; convert the filtered/merged
+    # extract first
+    osm_path = pbf_path[:-4] if pbf_path.endswith(".pbf") else pbf_path + ".osm"
+    to_osm_xml(pbf_path, osm_path)
+    subprocess.run(osm2pgrouting_cmd(osm_path, db_uri, mapconfig), check=True)

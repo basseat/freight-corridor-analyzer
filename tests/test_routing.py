@@ -42,4 +42,4 @@ def test_centroid_nodes_sql_snaps_via_knn():
 
 def test_edge_loads_sql_aggregates_tonnes_per_edge():
     sql = edge_loads_sql()
-    assert "SUM(r.tonnes)" in sql and "GROUP BY w.gid" in sql and "od_routes" in sql
+    assert "SUM(r.tonnes)" in sql and "GROUP BY w.id" in sql and "od_routes" in sql

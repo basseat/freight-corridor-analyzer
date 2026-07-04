@@ -1,4 +1,4 @@
-from network import extract_url, filter_cmd, merge_cmd, osm2pgrouting_cmd
+from network import extract_url, filter_cmd, merge_cmd, to_osm_xml_cmd, osm2pgrouting_cmd
 
 
 def val(cmd, flag):
@@ -23,6 +23,14 @@ def test_merge_cmd_includes_all_inputs():
     assert cmd[:2] == ["osmium", "merge"]
     assert "a.osm.pbf" in cmd and "b.osm.pbf" in cmd
     assert val(cmd, "-o") == "merged.osm.pbf"
+
+
+def test_to_osm_xml_cmd_converts_pbf_to_xml():
+    # osm2pgrouting parses OSM XML, not PBF
+    cmd = to_osm_xml_cmd("network_five.osm.pbf", "network_five.osm")
+    assert cmd[:2] == ["osmium", "cat"]
+    assert val(cmd, "-o") == "network_five.osm"
+    assert cmd[-1] == "network_five.osm.pbf"
 
 
 def test_osm2pgrouting_cmd_parses_db_uri():

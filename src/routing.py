@@ -31,11 +31,11 @@ def centroid_nodes_sql():
     return """
 DROP TABLE IF EXISTS centroid_nodes;
 CREATE TABLE centroid_nodes AS
-SELECT r.nuts2, n.id AS node, (r.c <-> n.the_geom) AS dist
+SELECT r.nuts2, n.id AS node, (r.c <-> n.geom) AS dist
 FROM (SELECT nuts2, ST_Centroid(the_geom) AS c FROM nuts2_regions) r
 CROSS JOIN LATERAL (
-    SELECT id, the_geom FROM ways_vertices_pgr
-    ORDER BY the_geom <-> r.c LIMIT 1
+    SELECT id, geom FROM ways_vertices_pgr
+    ORDER BY geom <-> r.c LIMIT 1
 ) n;
 ALTER TABLE centroid_nodes ADD PRIMARY KEY (nuts2);
 """
@@ -63,7 +63,7 @@ WITH od AS (
 paths AS (
     SELECT start_vid, end_vid, edge
     FROM pgr_dijkstra(
-        'SELECT gid AS id, source, target, cost, reverse_cost FROM ways',
+        'SELECT id, source, target, cost, reverse_cost FROM ways',
         '{combos}',
         true)
     WHERE edge <> -1
@@ -79,11 +79,11 @@ def edge_loads_sql():
     return """
 DROP TABLE IF EXISTS edge_loads;
 CREATE TABLE edge_loads AS
-SELECT w.gid, w.the_geom, SUM(r.tonnes) AS tonnes
+SELECT w.id, w.geom, SUM(r.tonnes) AS tonnes
 FROM od_routes r
-JOIN ways w ON w.gid = r.edge
-GROUP BY w.gid, w.the_geom;
-CREATE INDEX ON edge_loads USING gist (the_geom);
+JOIN ways w ON w.id = r.edge
+GROUP BY w.id, w.geom;
+CREATE INDEX ON edge_loads USING gist (geom);
 """
 
 
