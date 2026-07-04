@@ -184,3 +184,29 @@ A full **real-data** run (Tier B) additionally needs `osmium` and
   tables
 - `NUTS_YEAR` — GISCO NUTS classification vintage for region geometry
   (default `2021`)
+
+## Visualization (Tableau)
+
+The map is built from the **motorway + trunk** slice of `edge_loads`. Primary
+segments near region centroids carry a centroid-connector artifact (a region's
+whole tonnage funnels along its single access node's egress path), so they are
+excluded — the corridor signal is clean on the motorway/trunk network.
+
+`src/export_corridors.py` writes that slice to a GeoJSON `FeatureCollection`
+(one `LineString` per edge, with `tonnes`, `road_class`, `name`), geometry
+lightly simplified, that Tableau opens natively:
+
+```bash
+python src/export_corridors.py \
+  "postgresql+psycopg2://postgres@localhost:5433/freight_net" \
+  corridor_loads_2023.geojson            # optional 3rd arg: min tonnes to trim
+```
+
+For the five-country 2023 run this is ~184k features / ~39 MB. Pass a
+`min_tonnes` threshold (e.g. `20000`) for a lighter, busier-corridors-only file.
+
+In Tableau: **Connect → To a File → Spatial file** → pick the `.geojson`. Drag
+**Geometry** onto the view for the map, put **tonnes** on **Color** and **Size**
+(the line-load encoding), and use **road_class** as a filter and **name** in the
+tooltip. That yields the "most-used corridors" map — busiest routes render
+thick and hot (Spanish autovías, the Catalan Eix, German/Polish trunk axes).
