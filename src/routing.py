@@ -52,10 +52,10 @@ DROP TABLE major_nodes;
 """
 
 
-# weight by length in metres; sign(cost)/sign(reverse_cost) preserves
-# osm2pgrouting's one-way encoding (negative = not traversable that way)
-_EDGES_SQL = ("SELECT id, source, target, sign(cost) * length_m AS cost, "
-              "sign(reverse_cost) * length_m AS reverse_cost FROM ways")
+# weight by drive time: cost_s/reverse_cost_s are osm2pgrouting's per-edge
+# traversal seconds (length / maxspeed) and already carry the one-way sign
+# (negative = not traversable that way)
+_EDGES_SQL = "SELECT id, source, target, cost_s AS cost, reverse_cost_s AS reverse_cost FROM ways"
 
 
 def route_od_sql(vintage):
