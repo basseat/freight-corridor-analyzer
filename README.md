@@ -4,6 +4,48 @@ Maps the most-used long-distance road freight corridors across Germany, France,
 Spain, Netherlands, and Poland, using real Eurostat data. Extends the earlier
 **Green Miles** project from tonnage totals into a routable network view.
 
+## Results (2023)
+
+*Europe's Busiest Road-Freight Corridors — Germany · France · Spain ·
+Netherlands · Poland.*
+
+<!-- add the exported Tableau map here: docs/corridor_map_2023.png -->
+<!-- ![Corridor map](docs/corridor_map_2023.png) -->
+
+On the 2023 Eurostat vintage the pipeline reconstructs a **13,456-pair NUTS-2
+origin–destination matrix** (116 regions; IPF closes all three marginal
+constraints to a residual of 2e-10) and assigns it to a **1.4M-edge OpenStreetMap
+network** along drive-time-shortest paths. Freight concentrates onto the fast
+network: **267k of the 1.4M edges carry load** under drive-time weighting (vs
+409k when weighted by pure distance), so the arterial corridors stand out
+sharply.
+
+**Top international corridors** (reconstructed flows, million tonnes/yr):
+
+| Corridor | Mt/yr |
+| --- | --- |
+| Germany ↔ Netherlands | 42.5 / 40.9 |
+| Poland ↔ Germany | 37.8 / 31.5 |
+| Spain ↔ France | 26.7 / 23.0 |
+
+Germany is the hub — the largest domestic market (≈2.6 bn t/yr) and the top of
+every cross-border pair, radiating along the Rhine–Randstad axis to the
+Netherlands and eastward to Poland. The map also exposes a structural contrast:
+**Spain** funnels its ≈1.45 bn t/yr through a *sparse* autovía skeleton — a few
+roads each carrying heavy load, so they burn hot — while **France** spreads a
+similar volume across a *denser* motorway grid, so no single segment dominates.
+
+**Caveats.** Eurostat publishes no O-D matrix for road freight (statistical
+confidentiality), so these flows are an IPF *reconstruction* from published
+marginals, not measured movements. Each NUTS-2 region is represented by a single
+network access node, so tonnage concentrates on region egress paths (a standard
+centroid-connector artifact) — the corridor map is therefore drawn on the
+motorway/trunk layer, where the signal is clean. Region granularity is NUTS-2
+(v1); NUTS-3 is a documented later step.
+
+*Source: Eurostat road freight (`road_go_ta_rl`, `road_go_ta_ru`,
+`road_go_ia_rc`), 2023; road network © OpenStreetMap contributors.*
+
 ## Why IPF
 
 Eurostat publishes no origin-destination matrix for road freight (statistical
