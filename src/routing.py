@@ -41,38 +41,37 @@ ALTER TABLE centroid_nodes ADD PRIMARY KEY (nuts2);
 """
 
 
+# weight by length in metres; sign(cost)/sign(reverse_cost) preserves
+# osm2pgrouting's one-way encoding (negative = not traversable that way)
+_EDGES_SQL = ("SELECT id, source, target, sign(cost) * length_m AS cost, "
+              "sign(reverse_cost) * length_m AS reverse_cost FROM ways")
+
+
 def route_od_sql(vintage):
     v = int(vintage)
-    combos = (
-        "SELECT DISTINCT o.node AS source, d.node AS target "
-        "FROM freight_od_matrix m "
-        "JOIN centroid_nodes o ON o.nuts2 = m.orig_nuts2 "
-        "JOIN centroid_nodes d ON d.nuts2 = m.dest_nuts2 "
-        f"WHERE m.vintage = {v} AND o.node <> d.node"
-    )
+    # route one-to-many per source via LATERAL: a single combinations call over
+    # all ~13k pairs makes pgr_dijkstra allocate >1GB and fail, so batch by source
     return f"""
 DROP TABLE IF EXISTS od_routes;
+CREATE TEMP TABLE od_pairs AS
+SELECT o.node AS source, d.node AS target, m.tonnes
+FROM freight_od_matrix m
+JOIN centroid_nodes o ON o.nuts2 = m.orig_nuts2
+JOIN centroid_nodes d ON d.nuts2 = m.dest_nuts2
+WHERE m.vintage = {v} AND o.node <> d.node;
+
 CREATE TABLE od_routes AS
-WITH od AS (
-    SELECT o.node AS source, d.node AS target, m.tonnes
-    FROM freight_od_matrix m
-    JOIN centroid_nodes o ON o.nuts2 = m.orig_nuts2
-    JOIN centroid_nodes d ON d.nuts2 = m.dest_nuts2
-    WHERE m.vintage = {v} AND o.node <> d.node
-),
-paths AS (
-    -- weight by length in metres; sign(cost)/sign(reverse_cost) preserves
-    -- osm2pgrouting's one-way encoding (negative = not traversable that way)
-    SELECT start_vid, end_vid, edge
-    FROM pgr_dijkstra(
-        'SELECT id, source, target, sign(cost) * length_m AS cost, sign(reverse_cost) * length_m AS reverse_cost FROM ways',
-        '{combos}',
-        true)
-    WHERE edge <> -1
-)
-SELECT p.edge, od.tonnes
-FROM paths p
-JOIN od ON od.source = p.start_vid AND od.target = p.end_vid;
+SELECT dij.edge, p.tonnes
+FROM (SELECT DISTINCT source FROM od_pairs) s
+CROSS JOIN LATERAL pgr_dijkstra(
+    '{_EDGES_SQL}',
+    s.source,
+    (SELECT array_agg(DISTINCT target) FROM od_pairs o WHERE o.source = s.source),
+    true) dij
+JOIN od_pairs p ON p.source = dij.start_vid AND p.target = dij.end_vid
+WHERE dij.edge <> -1;
+
+DROP TABLE od_pairs;
 """
 
 
