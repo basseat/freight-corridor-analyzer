@@ -244,8 +244,20 @@ python src/export_corridors.py \
   corridor_loads_2023.geojson            # optional 3rd arg: min tonnes to trim
 ```
 
-For the five-country 2023 run this is ~184k features / ~39 MB. Pass a
+For the five-country 2023 run this is ~145k features / ~32 MB. Pass a
 `min_tonnes` threshold (e.g. `20000`) for a lighter, busier-corridors-only file.
+
+For a faint grey **backdrop** (so corridors read as continuous over Germany's
+dense mesh rather than fragmented), export the dissolved base network — the whole
+motorway/trunk skeleton merged into one line per class (2 features, ~3 MB):
+
+```bash
+python src/export_corridors.py "<db_uri>" network_base.geojson --base
+```
+
+Add it in Tableau as a second data source, drag its **Geometry** onto the map to
+create a marks layer, move that layer *below* the corridors, and style it thin
+light-grey.
 
 In Tableau: **Connect → To a File → Spatial file** → pick the `.geojson`. Drag
 **Geometry** onto the view for the map, put **tonnes** on **Color** and **Size**
