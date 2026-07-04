@@ -46,7 +46,7 @@ Three Airflow pipelines, each doing one job:
 
 1. **Demand** (`freight_assignment`) pulls and cleans the three Eurostat tables, reconstructs the NUTS-2 origin–destination matrix via IPF, checks the fit, and loads it to Postgres. On the 2023 vintage this is a 13,456-pair matrix across 116 regions, with IPF closing all three sets of constraints to a residual of 2e-10.
 2. **Network** (`build_network`) downloads the five OpenStreetMap country extracts, filters them to the motorway/trunk/primary layer, and loads a routable graph (about 1.4 million edges) into PostGIS with pgRouting.
-3. **Routing** (`route_freight`) snaps each region to its nearest network node, routes every origin–destination flow along the drive-time-shortest path, and sums the tonnage crossing each road segment. That per-segment total is the "most-used corridors" layer.
+3. **Routing** (`route_freight`) snaps each region to its nearest major-road (motorway/trunk) node, routes every origin–destination flow along the drive-time-shortest path, and sums the tonnage crossing each road segment. That per-segment total is the "most-used corridors" layer.
 
 The routing pipeline reruns automatically whenever the network is rebuilt, using an Airflow Asset rather than a fixed schedule.
 
@@ -84,7 +84,7 @@ The `load` task declares `Asset("postgres://network/ways_topology")` as an outle
 
 `dags/route_freight.py`, scheduled off `Asset("postgres://network/ways_topology")`:
 
-1. `map_centroids` — pull NUTS-2 region polygons from Eurostat GISCO, load them into PostGIS, then snap each region's centroid to its nearest routable vertex via a KNN (`<->`) query
+1. `map_centroids` — pull NUTS-2 region polygons from Eurostat GISCO, load them into PostGIS, then snap each region's centroid to its nearest major-road (motorway/trunk) node via a KNN (`<->`) query — snapping to a major node rather than any vertex keeps a region's freight from funnelling through nearby local streets
 2. `route` — `pgr_dijkstra` (one-to-many) over every snapped O-D pair for the target vintage, expanding each shortest path to the edges it traverses and attaching that pair's tonnage. Edges are weighted by drive time (`cost_s` / `reverse_cost_s`), which already carry the one-way sign
 3. `edge_loads` — sum tonnage per edge into `edge_loads` (edge geometry + total tonnes), the routable "most-used corridors" layer for Tableau
 
