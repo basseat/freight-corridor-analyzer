@@ -118,7 +118,18 @@ pgRouting database, using a tiny synthetic graph it seeds itself (no OSM
 download, no `osmium`/`osm2pgrouting` needed). It **skips** unless
 `ROUTING_IT_DB_URI` is set.
 
-To run it against a local PostgreSQL (e.g. the EDB install at
+On a Mac with Homebrew `postgresql@17` + `postgis` + `pgrouting`, the
+whole thing is one command:
+
+```bash
+./scripts/run_integration.sh
+```
+
+It spins up a throwaway cluster on port 5433, enables the extensions,
+runs the test, and tears the cluster down again — nothing touches an
+existing server.
+
+To do it manually against your own PostgreSQL (e.g. an EDB install at
 `/Library/PostgreSQL/18`):
 
 ```bash
